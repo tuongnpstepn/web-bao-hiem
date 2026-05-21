@@ -1,10 +1,12 @@
 {
-  "name": "web-bao-hiem-backend",
+  "name": "web-bao-hiem",
   "version": "1.0.0",
-  "description": "",
-  "main": "script.js",
+  "private": true,
+  "description": "Monorepo: Vercel phục vụ index.html/style.css/frontend.js; Render chạy npm start → script.js",
   "scripts": {
     "start": "node script.js"
   },
-  "dependencies": {}
+  "engines": {
+    "node": ">=18"
+  }
 }

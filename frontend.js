@@ -1,32 +1,11 @@
 /**
- * ShieldCare — Đại lý Bảo hiểm (frontend)
- * Lắng nghe sự kiện submit của Form đăng ký tư vấn bảo hiểm
+ * ShieldCare — Đại lý Bảo hiểm (frontend, deploy Vercel)
  */
-
-// Chờ DOM tải xong mới gắn sự kiện để chắc chắn element tồn tại
-document.addEventListener("DOMContentLoaded", function () {
-  // Lấy form tư vấn theo id
-  const form = document.getElementById("consultation-form");
-  if (!form) return; // Nếu không tìm thấy form thì dừng lại
-
-  // Đăng ký lắng nghe sự kiện submit của form
-  form.addEventListener("submit", function (event) {
-    event.preventDefault(); // Ngăn reload trang mặc định của form
-
-    // Lấy giá trị tên khách hàng từ input name
-    const nameInput = form.querySelector('[name="name"]');
-    const name = nameInput ? nameInput.value.trim() : "";
-
-    // Hiển thị alert lời cảm ơn kèm tên người dùng
-    alert(`Cảm ơn bạn${name ? ", " + name : ""}! Chúng tôi sẽ liên hệ tư vấn sớm nhất.`);
-
-    // Reset lại form sau khi gửi
-    form.reset();
-  });
-});
 (function () {
   "use strict";
 
+  // URL backend Render (Web Service)
+  const API_URL = "https://web-bao-hiem.onrender.com";
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function onDomReady() {
@@ -122,6 +101,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!form) return;
 
     const successEl = document.getElementById("form-success");
+    const apiErrorEl = document.getElementById("form-api-error");
+    const submitBtn = form.querySelector('button[type="submit"]');
 
     const fields = [
       {
@@ -155,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
       },
     ];
 
-    function clearErrors() {
+    function clearFieldErrors() {
       fields.forEach(function (f) {
         if (!f.input) return;
         f.input.removeAttribute("aria-invalid");
@@ -164,9 +145,32 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
+    function hideApiError() {
+      if (!apiErrorEl) return;
+      apiErrorEl.hidden = true;
+      apiErrorEl.textContent = "";
+    }
+
+    function showApiError(message) {
+      if (apiErrorEl) {
+        apiErrorEl.textContent = message;
+        apiErrorEl.hidden = false;
+        apiErrorEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        return;
+      }
+      alert(message);
+    }
+
+    function setSubmitting(isSubmitting) {
+      if (!submitBtn) return;
+      submitBtn.disabled = isSubmitting;
+      submitBtn.textContent = isSubmitting ? "Đang gửi..." : "Gửi yêu cầu";
+    }
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      clearErrors();
+      clearFieldErrors();
+      hideApiError();
       if (successEl) successEl.hidden = true;
 
       let firstInvalid = null;
@@ -187,8 +191,54 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      form.reset();
-      if (successEl) successEl.hidden = false;
+      const payload = {
+        fullName: document.getElementById("full-name").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        insuranceType: document.getElementById("insurance-type").value,
+      };
+
+      setSubmitting(true);
+
+      fetch(API_URL + "/api/consultation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+        .then(function (response) {
+          return response
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (data) {
+              return { ok: response.ok, status: response.status, data: data };
+            });
+        })
+        .then(function (result) {
+          if (result.ok && result.data && result.data.success === true) {
+            form.reset();
+            hideApiError();
+            if (successEl) successEl.hidden = false;
+            return;
+          }
+
+          const serverMsg =
+            (result.data && (result.data.error || (result.data.errors && result.data.errors.join(", ")))) ||
+            "Gửi yêu cầu thất bại (mã " + result.status + "). Vui lòng thử lại.";
+          showApiError(serverMsg);
+        })
+        .catch(function () {
+          showApiError(
+            "Không kết nối được máy chủ. Kiểm tra mạng hoặc thử lại sau vài phút."
+          );
+        })
+        .finally(function () {
+          setSubmitting(false);
+        });
     });
   }
 
