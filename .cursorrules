@@ -8,3 +8,5 @@ Coding Rules:
 1. Always write clean, well-commented code. Comment explanations in Vietnamese.
 2. Keep styles modular, responsive, and avoid overwriting existing code unless requested.
 3. Prepare frontend.js with structured event listeners to easily fetch data to the backend API later.
+4. Hai bảng SQLite: customers (quản lý BH) + customer_requests (yêu cầu web). Admin có menu riêng từng khu.
+5. Chạy: npm install && npm start → http://localhost:3000/admin.html
