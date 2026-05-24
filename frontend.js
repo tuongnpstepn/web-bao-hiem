@@ -1,30 +1,39 @@
 /**
- * ShieldCare — Đại lý Bảo hiểm (frontend, deploy Vercel)
+ * frontend.js — Trang khách: gửi yêu cầu bảo hiểm xe mô tô / ô tô
  */
 (function () {
   "use strict";
 
-  // URL backend Render (Web Service)
-  const API_URL = "https://web-bao-hiem.onrender.com";
-  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function getApiUrl() {
+    const h = window.location.hostname;
+    if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".onrender.com")) {
+      return "";
+    }
+    return "https://web-bao-hiem.onrender.com";
+  }
+
+  const API_URL = getApiUrl();
+  const PHONE_REGEX = /^(0|\+84)[0-9]{8,11}$/;
+
+  const SUCCESS_MSG =
+    "Đã nhận được yêu cầu của quý khách. Nhân viên sẽ sớm liên hệ tư vấn.";
 
   function onDomReady() {
     console.log("Frontend ready");
     initNavScroll();
     initMobileNav();
     initSmoothScroll();
-    initConsultationForm();
+    initRequestForm();
+    initPopup();
     initFooterYear();
   }
 
   function initNavScroll() {
     const header = document.getElementById("site-header");
     if (!header) return;
-
     function updateScrolled() {
       header.classList.toggle("is-scrolled", window.scrollY > 16);
     }
-
     updateScrolled();
     window.addEventListener("scroll", updateScrolled, { passive: true });
   }
@@ -48,141 +57,134 @@
 
     menu.querySelectorAll('a[href^="#"]').forEach(function (link) {
       link.addEventListener("click", function () {
-        if (window.matchMedia("(max-width: 768px)").matches) {
-          setOpen(false);
-        }
+        if (window.matchMedia("(max-width: 768px)").matches) setOpen(false);
       });
     });
 
     window.addEventListener("resize", function () {
-      if (!window.matchMedia("(max-width: 768px)").matches) {
-        setOpen(false);
-      }
-    });
-
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && header.classList.contains("nav-open")) {
-        setOpen(false);
-        toggle.focus();
-      }
+      if (!window.matchMedia("(max-width: 768px)").matches) setOpen(false);
     });
   }
 
   function initSmoothScroll() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
       anchor.addEventListener("click", function (e) {
         const id = this.getAttribute("href");
         if (!id || id === "#") return;
-
         const target = document.querySelector(id);
         if (!target) return;
-
         e.preventDefault();
         const header = document.getElementById("site-header");
         const offset = header ? header.offsetHeight : 0;
         const top = target.getBoundingClientRect().top + window.scrollY - offset - 8;
-
-        window.scrollTo({
-          top: Math.max(0, top),
-          behavior: reduceMotion ? "auto" : "smooth",
-        });
-
-        if (history.replaceState) {
-          history.replaceState(null, "", id);
-        }
+        window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? "auto" : "smooth" });
       });
     });
   }
 
-  function initConsultationForm() {
-    const form = document.getElementById("consultation-form");
+  /** Toast góc màn hình */
+  function showToast(message) {
+    const toast = document.getElementById("site-toast");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.className = "site-toast site-toast--show";
+    toast.hidden = false;
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function () {
+      toast.classList.remove("site-toast--show");
+      toast.hidden = true;
+    }, 4500);
+  }
+
+  /** Popup thành công */
+  function showPopup(message) {
+    const popup = document.getElementById("site-popup");
+    const msgEl = document.getElementById("popup-message");
+    if (!popup) return;
+    if (msgEl) msgEl.textContent = message || SUCCESS_MSG;
+    popup.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function hidePopup() {
+    const popup = document.getElementById("site-popup");
+    if (!popup) return;
+    popup.hidden = true;
+    document.body.style.overflow = "";
+  }
+
+  function initPopup() {
+    const closeBtn = document.getElementById("popup-close");
+    const backdrop = document.getElementById("popup-backdrop");
+    if (closeBtn) closeBtn.addEventListener("click", hidePopup);
+    if (backdrop) backdrop.addEventListener("click", hidePopup);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") hidePopup();
+    });
+  }
+
+  function initRequestForm() {
+    const form = document.getElementById("request-form");
     if (!form) return;
 
-    const successEl = document.getElementById("form-success");
     const apiErrorEl = document.getElementById("form-api-error");
-    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById("request-submit");
 
     const fields = [
       {
-        input: document.getElementById("full-name"),
-        errorId: "error-full-name",
+        id: "ten-khach-hang",
+        errorId: "error-ten-khach-hang",
         validate: function (v) {
-          return v.trim() ? "" : "Vui lòng nhập họ và tên.";
+          return v.trim() ? "" : "Vui lòng nhập tên khách hàng.";
         },
       },
       {
-        input: document.getElementById("phone"),
-        errorId: "error-phone",
+        id: "so-dien-thoai",
+        errorId: "error-so-dien-thoai",
         validate: function (v) {
-          return v.trim() ? "" : "Vui lòng nhập số điện thoại.";
+          const phone = v.trim().replace(/\s/g, "");
+          if (!phone) return "Vui lòng nhập số điện thoại.";
+          if (!PHONE_REGEX.test(phone)) return "Số điện thoại không hợp lệ.";
+          return "";
         },
       },
       {
-        input: document.getElementById("email"),
-        errorId: "error-email",
+        id: "bien-so",
+        errorId: "error-bien-so",
         validate: function (v) {
-          if (!v.trim()) return "Vui lòng nhập email.";
-          return EMAIL_REGEX.test(v.trim()) ? "" : "Email không hợp lệ.";
-        },
-      },
-      {
-        input: document.getElementById("insurance-type"),
-        errorId: "error-insurance-type",
-        validate: function (v) {
-          return v ? "" : "Vui lòng chọn loại bảo hiểm.";
+          return v.trim() ? "" : "Vui lòng nhập biển số xe.";
         },
       },
     ];
 
-    function clearFieldErrors() {
+    function clearErrors() {
       fields.forEach(function (f) {
-        if (!f.input) return;
-        f.input.removeAttribute("aria-invalid");
+        const input = document.getElementById(f.id);
         const err = document.getElementById(f.errorId);
+        if (input) input.removeAttribute("aria-invalid");
         if (err) err.textContent = "";
       });
-    }
-
-    function hideApiError() {
-      if (!apiErrorEl) return;
-      apiErrorEl.hidden = true;
-      apiErrorEl.textContent = "";
-    }
-
-    function showApiError(message) {
       if (apiErrorEl) {
-        apiErrorEl.textContent = message;
-        apiErrorEl.hidden = false;
-        apiErrorEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        return;
+        apiErrorEl.hidden = true;
+        apiErrorEl.textContent = "";
       }
-      alert(message);
-    }
-
-    function setSubmitting(isSubmitting) {
-      if (!submitBtn) return;
-      submitBtn.disabled = isSubmitting;
-      submitBtn.textContent = isSubmitting ? "Đang gửi..." : "Gửi yêu cầu";
     }
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      clearFieldErrors();
-      hideApiError();
-      if (successEl) successEl.hidden = true;
+      clearErrors();
 
       let firstInvalid = null;
-
       fields.forEach(function (f) {
-        if (!f.input) return;
-        const msg = f.validate(f.input.value);
+        const input = document.getElementById(f.id);
+        if (!input) return;
+        const msg = f.validate(input.value);
         if (msg) {
-          f.input.setAttribute("aria-invalid", "true");
-          const errEl = document.getElementById(f.errorId);
-          if (errEl) errEl.textContent = msg;
-          if (!firstInvalid) firstInvalid = f.input;
+          input.setAttribute("aria-invalid", "true");
+          const err = document.getElementById(f.errorId);
+          if (err) err.textContent = msg;
+          if (!firstInvalid) firstInvalid = input;
         }
       });
 
@@ -192,52 +194,62 @@
       }
 
       const payload = {
-        fullName: document.getElementById("full-name").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        insuranceType: document.getElementById("insurance-type").value,
+        tenKhachHang: document.getElementById("ten-khach-hang").value.trim(),
+        soDienThoai: document
+          .getElementById("so-dien-thoai")
+          .value.trim()
+          .replace(/\s/g, ""),
+        bienSo: document.getElementById("bien-so").value.trim(),
       };
 
-      setSubmitting(true);
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Đang gửi...";
+      }
 
-      fetch(API_URL + "/api/consultation", {
+      fetch(API_URL + "/customer-request", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),
       })
-        .then(function (response) {
-          return response
-            .json()
-            .catch(function () {
-              return {};
-            })
-            .then(function (data) {
-              return { ok: response.ok, status: response.status, data: data };
-            });
+        .then(function (res) {
+          return res.json().catch(function () {
+            return {};
+          }).then(function (data) {
+            return { ok: res.ok, data: data };
+          });
         })
         .then(function (result) {
-          if (result.ok && result.data && result.data.success === true) {
+          if (result.ok && result.data && result.data.success) {
             form.reset();
-            hideApiError();
-            if (successEl) successEl.hidden = false;
+            showToast(SUCCESS_MSG);
+            showPopup(SUCCESS_MSG);
             return;
           }
-
-          const serverMsg =
-            (result.data && (result.data.error || (result.data.errors && result.data.errors.join(", ")))) ||
-            "Gửi yêu cầu thất bại (mã " + result.status + "). Vui lòng thử lại.";
-          showApiError(serverMsg);
+          const msg =
+            (result.data && (result.data.error || (result.data.errors && result.data.errors.join(" ")))) ||
+            "Gửi yêu cầu thất bại. Vui lòng thử lại.";
+          if (apiErrorEl) {
+            apiErrorEl.textContent = msg;
+            apiErrorEl.hidden = false;
+          } else {
+            showToast(msg);
+          }
         })
         .catch(function () {
-          showApiError(
-            "Không kết nối được máy chủ. Kiểm tra mạng hoặc thử lại sau vài phút."
-          );
+          const msg = "Không kết nối được máy chủ. Hãy chạy: npm start";
+          if (apiErrorEl) {
+            apiErrorEl.textContent = msg;
+            apiErrorEl.hidden = false;
+          } else {
+            showToast(msg);
+          }
         })
         .finally(function () {
-          setSubmitting(false);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Gửi yêu cầu bảo hiểm";
+          }
         });
     });
   }

@@ -1,160 +1,290 @@
 /**
- * Backend Node.js thuần (http) — deploy Render
- * API: POST /api/consultation
+ * script.js — Backend Express (Render / local)
+ * - Phục vụ file tĩnh (index.html, admin.html...)
+ * - API đăng nhập admin + quản lý khách hàng (SQLite)
+ * - Giữ API tư vấn công khai: POST /api/consultation
  */
-const http = require("http");
+const express = require("express");
+const session = require("express-session");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const path = require("path");
 
+const db = require("./database");
+const { validateCustomerBody, validateCustomerRequest } = require("./validators");
+
+const app = express();
 const PORT = process.env.PORT || 3000;
-const MAX_BODY_BYTES = 1e6;
 
-// CORS: cho phép frontend Vercel (*.vercel.app) và tùy chọn qua biến môi trường
+// Thông tin admin (không đưa ra frontend)
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "baohiem@mo";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
+const SESSION_SECRET =
+  process.env.SESSION_SECRET || "shieldcare-bao-hiem-mo-to-session-2026";
+
 const VERCEL_ORIGIN_PATTERN = /^https:\/\/[\w.-]+\.vercel\.app$/;
-
-function getExtraAllowedOrigins() {
-  const raw = process.env.CORS_ALLOWED_ORIGINS || "";
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 function isOriginAllowed(origin) {
   if (!origin) return true;
   if (process.env.CORS_ALLOW_ALL === "true") return true;
   if (VERCEL_ORIGIN_PATTERN.test(origin)) return true;
-  return getExtraAllowedOrigins().includes(origin);
+  const extra = (process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return extra.includes(origin);
 }
 
-/** Middleware CORS — gắn header trước mọi phản hồi */
-function applyCors(req, res) {
-  const origin = req.headers.origin;
-  const allowOrigin =
-    origin && isOriginAllowed(origin) ? origin : "*";
-
-  const headers = {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-    "Access-Control-Max-Age": "86400",
-    Vary: "Origin",
-  };
-
-  return headers;
-}
-
-function sendJson(req, res, statusCode, data) {
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    ...applyCors(req, res),
-  });
-  res.end(JSON.stringify(data));
-}
-
-function getPathname(url) {
-  if (!url) return "/";
-  const q = url.indexOf("?");
-  return q === -1 ? url : url.slice(0, q);
-}
-
-function readJsonBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    let size = 0;
-
-    req.on("data", (chunk) => {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        req.destroy();
-        reject(new Error("Payload quá lớn"));
-        return;
+// CORS — cho phép frontend Vercel gọi API (có cookie khi cần)
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
       }
-      body += chunk;
-    });
+    },
+    credentials: true,
+  })
+);
 
-    req.on("end", () => {
-      if (!body.trim()) {
-        resolve({});
-        return;
-      }
-      try {
-        resolve(JSON.parse(body));
-      } catch {
-        reject(new Error("JSON không hợp lệ"));
-      }
-    });
+app.use(bodyParser.json({ limit: "1mb" }));
 
-    req.on("error", reject);
-  });
+app.use(
+  session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
+  })
+);
+
+// Phục vụ HTML/CSS/JS tĩnh tại thư mục gốc project
+app.use(express.static(path.join(__dirname)));
+
+/** Middleware: chỉ admin đã đăng nhập */
+function requireAuth(req, res, next) {
+  if (req.session && req.session.isAdmin) {
+    return next();
+  }
+  return res.status(401).json({ success: false, error: "Chưa đăng nhập hoặc phiên hết hạn." });
 }
 
-function validateConsultation(data) {
-  const errors = [];
-  const fullName =
-    typeof data.fullName === "string" ? data.fullName.trim() : "";
-  const phone = typeof data.phone === "string" ? data.phone.trim() : "";
-  const email = typeof data.email === "string" ? data.email.trim() : "";
-  const insuranceType =
-    typeof data.insuranceType === "string" ? data.insuranceType.trim() : "";
+/** Kiểm tra đăng nhập (admin frontend gọi khi load trang) */
+app.get("/api/auth/status", (req, res) => {
+  res.json({ loggedIn: !!(req.session && req.session.isAdmin) });
+});
 
-  if (!fullName) errors.push("fullName là bắt buộc");
-  if (!phone) errors.push("phone là bắt buộc");
-  if (!email) errors.push("email là bắt buộc");
-  if (!insuranceType) errors.push("insuranceType là bắt buộc");
+/** Đăng nhập admin (nhận field admin hoặc email để tương thích) */
+app.post("/login", (req, res) => {
+  const adminUser =
+    typeof req.body.admin === "string"
+      ? req.body.admin.trim()
+      : typeof req.body.email === "string"
+        ? req.body.email.trim()
+        : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
 
-  const allowed = ["car", "health", "home"];
-  if (insuranceType && !allowed.includes(insuranceType)) {
-    errors.push("insuranceType không hợp lệ");
+  if (!adminUser || !password) {
+    return res.status(400).json({ success: false, error: "Vui lòng nhập Admin và mật khẩu." });
   }
 
-  return {
-    ok: errors.length === 0,
-    errors,
-    payload: { fullName, phone, email, insuranceType },
-  };
-}
+  if (adminUser === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    req.session.isAdmin = true;
+    return res.json({ success: true, message: "Đăng nhập thành công." });
+  }
 
-const server = http.createServer(async (req, res) => {
-  const pathname = getPathname(req.url);
+  return res.status(401).json({ success: false, error: "Admin hoặc mật khẩu không đúng." });
+});
 
+/** Đăng xuất */
+app.get("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ success: false, error: "Không thể đăng xuất." });
+    }
+    res.clearCookie("connect.sid");
+    res.json({ success: true, message: "Đã đăng xuất." });
+  });
+});
+
+/** Danh sách khách hàng + lọc + tìm kiếm */
+app.get("/customers", requireAuth, async (req, res) => {
   try {
-    // Preflight CORS (trình duyệt từ Vercel gọi POST cross-origin)
-    if (req.method === "OPTIONS") {
-      res.writeHead(204, applyCors(req, res));
-      return res.end();
-    }
+    const filter = req.query.filter || "all";
+    const search = req.query.search || "";
 
-    // Health check cho Render
-    if (req.method === "GET" && (pathname === "/" || pathname === "/api/health")) {
-      return sendJson(req, res, 200, { ok: true, service: "shieldcare-api" });
-    }
+    let list = await db.getAllCustomers();
+    list = db.attachTrangThai(list);
+    list = db.filterByTrangThai(list, filter);
+    list = db.filterBySearch(list, search);
 
-    if (req.method === "POST" && pathname === "/api/consultation") {
-      let data;
-      try {
-        data = await readJsonBody(req);
-      } catch (err) {
-        const msg = err.message === "Payload quá lớn" ? err.message : "Dữ liệu JSON không hợp lệ";
-        return sendJson(req, res, 400, { success: false, error: msg });
-      }
-
-      const { ok, errors, payload } = validateConsultation(data);
-      if (!ok) {
-        return sendJson(req, res, 400, { success: false, errors });
-      }
-
-      console.log("[consultation]", new Date().toISOString(), payload);
-      return sendJson(req, res, 200, { success: true });
-    }
-
-    return sendJson(req, res, 404, { success: false, error: "Không tìm thấy API" });
+    res.json({ success: true, data: list });
   } catch (err) {
-    console.error("[server-error]", err);
-    if (!res.headersSent) {
-      sendJson(req, res, 500, { success: false, error: "Lỗi máy chủ nội bộ" });
-    }
+    console.error(err);
+    res.status(500).json({ success: false, error: "Lỗi khi tải danh sách khách hàng." });
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server chạy tại cổng ${PORT}`);
+/** Thêm khách hàng */
+app.post("/customers", requireAuth, async (req, res) => {
+  try {
+    const { ok, errors, data } = validateCustomerBody(req.body, db.parseDateOnly);
+    if (!ok) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const existed = await db.getCustomerByBienSo(data.bienSo);
+    if (existed) {
+      return res.status(400).json({ success: false, error: "Biển số đã tồn tại." });
+    }
+
+    const created = await db.createCustomer(data);
+    res.status(201).json({
+      success: true,
+      data: { ...created, trangThai: db.getTrangThai(created.ngayHetHan) },
+    });
+  } catch (err) {
+    if (err.message && err.message.includes("UNIQUE")) {
+      return res.status(400).json({ success: false, error: "Biển số đã tồn tại." });
+    }
+    console.error(err);
+    res.status(500).json({ success: false, error: "Lỗi khi thêm khách hàng." });
+  }
 });
+
+/** Sửa khách hàng */
+app.put("/customers/:id", requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ success: false, error: "ID không hợp lệ." });
+    }
+
+    const current = await db.getCustomerById(id);
+    if (!current) {
+      return res.status(404).json({ success: false, error: "Không tìm thấy khách hàng." });
+    }
+
+    const { ok, errors, data } = validateCustomerBody(req.body, db.parseDateOnly);
+    if (!ok) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const existed = await db.getCustomerByBienSo(data.bienSo, id);
+    if (existed) {
+      return res.status(400).json({ success: false, error: "Biển số đã tồn tại." });
+    }
+
+    const updated = await db.updateCustomer(id, data);
+    res.json({
+      success: true,
+      data: { ...updated, trangThai: db.getTrangThai(updated.ngayHetHan) },
+    });
+  } catch (err) {
+    if (err.message && err.message.includes("UNIQUE")) {
+      return res.status(400).json({ success: false, error: "Biển số đã tồn tại." });
+    }
+    console.error(err);
+    res.status(500).json({ success: false, error: "Lỗi khi cập nhật khách hàng." });
+  }
+});
+
+/** Xóa khách hàng */
+app.delete("/customers/:id", requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ success: false, error: "ID không hợp lệ." });
+    }
+
+    const deleted = await db.deleteCustomer(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: "Không tìm thấy khách hàng." });
+    }
+
+    res.json({ success: true, message: "Đã xóa khách hàng." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Lỗi khi xóa khách hàng." });
+  }
+});
+
+/** Khách gửi yêu cầu bảo hiểm xe (công khai) */
+app.post("/customer-request", async (req, res) => {
+  try {
+    const { ok, errors, data } = validateCustomerRequest(req.body, db.sanitizeText);
+    if (!ok) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const created = await db.createCustomerRequest(data);
+    console.log("[customer-request]", created);
+    res.status(201).json({ success: true, data: created });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Không lưu được yêu cầu." });
+  }
+});
+
+/** Admin: danh sách yêu cầu khách */
+app.get("/customer-requests", requireAuth, async (req, res) => {
+  try {
+    const statusFilter = req.query.status || "all";
+    const search = req.query.search || "";
+
+    let list = await db.getAllCustomerRequests();
+    list = db.filterRequestsByStatus(list, statusFilter);
+    list = db.filterRequestsBySearch(list, search);
+
+    res.json({ success: true, data: list });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Lỗi khi tải yêu cầu." });
+  }
+});
+
+/** Admin: xóa yêu cầu */
+app.delete("/customer-requests/:id", requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ success: false, error: "ID không hợp lệ." });
+    }
+    const deleted = await db.deleteCustomerRequest(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: "Không tìm thấy yêu cầu." });
+    }
+    res.json({ success: true, message: "Đã xóa yêu cầu." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Lỗi khi xóa yêu cầu." });
+  }
+});
+
+/** Health check */
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, service: "shieldcare-api" });
+});
+
+// Khởi động server sau khi tạo database
+async function startServer() {
+  try {
+    await db.initDatabase();
+    app.listen(PORT, () => {
+      console.log(`Server chạy tại http://localhost:${PORT}`);
+      console.log(`Trang admin: http://localhost:${PORT}/admin.html`);
+    });
+  } catch (err) {
+    console.error("Không khởi động được server:", err);
+    process.exit(1);
+  }
+}
+
+startServer();

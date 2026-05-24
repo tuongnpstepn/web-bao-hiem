@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Đại lý bảo hiểm uy tín — xe, sức khỏe, nhà ở. Tư vấn miễn phí, nhanh chóng."
+      content="Bảo hiểm xe mô tô và ô tô — tư vấn nhanh, đáng tin cậy, hỗ trợ 24/7."
     />
-    <title>ShieldCare | Đại lý Bảo hiểm</title>
+    <title>ShieldCare | Bảo hiểm xe mô tô & ô tô</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -24,6 +24,24 @@
   </head>
   <body>
     <a class="skip-link" href="#main-content">Chuyển tới nội dung chính</a>
+
+    <!-- Toast thông báo sau khi gửi yêu cầu -->
+    <div class="site-toast" id="site-toast" role="status" aria-live="polite" hidden></div>
+
+    <!-- Popup thành công -->
+    <div class="site-popup" id="site-popup" hidden>
+      <div class="site-popup__backdrop" id="popup-backdrop"></div>
+      <div class="site-popup__card" role="dialog" aria-labelledby="popup-title">
+        <div class="site-popup__icon" aria-hidden="true">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <h2 class="site-popup__title" id="popup-title">Gửi yêu cầu thành công!</h2>
+        <p class="site-popup__text" id="popup-message">
+          Đã nhận được yêu cầu của quý khách. Nhân viên sẽ sớm liên hệ tư vấn.
+        </p>
+        <button type="button" class="btn btn--primary btn--block" id="popup-close">Đóng</button>
+      </div>
+    </div>
 
     <header class="site-header" id="site-header">
       <nav class="navbar" aria-label="Điều hướng chính">
@@ -51,171 +69,127 @@
           <ul class="navbar__links">
             <li><a href="#home" class="navbar__link">Trang chủ</a></li>
             <li><a href="#services" class="navbar__link">Dịch vụ</a></li>
-            <li><a href="#about" class="navbar__link">Giới thiệu</a></li>
-            <li><a href="#contact" class="navbar__link">Liên hệ</a></li>
+            <li><a href="#request" class="navbar__link">Gửi yêu cầu</a></li>
           </ul>
-          <a href="#consultation" class="btn btn--outline navbar__cta">Nhận báo giá</a>
+          <a href="#request" class="btn btn--outline navbar__cta">Báo giá ngay</a>
         </div>
       </nav>
     </header>
 
     <main id="main-content">
-      <section class="hero" id="home" aria-labelledby="hero-heading">
-        <div class="hero__bg" role="img" aria-label="Hình nền trừu tượng"></div>
+      <section class="hero hero--vehicle" id="home" aria-labelledby="hero-heading">
+        <div class="hero__bg" role="img" aria-label="Banner bảo hiểm xe"></div>
         <div class="hero__inner">
+          <p class="hero__badge">
+            <i class="fa-solid fa-motorcycle" aria-hidden="true"></i>
+            Mô tô &amp; Ô tô
+          </p>
           <h1 class="hero__title" id="hero-heading">
-            Đối tác bảo hiểm đáng tin cậy của bạn
+            Bảo hiểm xe mô tô &amp; ô tô uy tín
           </h1>
           <p class="hero__subtitle">
-            Bảo vệ những điều quan trọng nhất — nhanh chóng, dễ dàng và đáng tin cậy.
+            Tư vấn nhanh — Tin cậy — hỗ trợ bồi thường tận tâm.
           </p>
-          <a href="#consultation" class="btn btn--primary hero__cta">Tư vấn miễn phí</a>
+          <a href="#request" class="btn btn--primary hero__cta">Gửi yêu cầu bảo hiểm</a>
         </div>
       </section>
 
       <section class="section services" id="services" aria-labelledby="services-heading">
         <div class="container">
-          <h2 class="section__title" id="services-heading">Dịch vụ bảo hiểm</h2>
+          <h2 class="section__title" id="services-heading">Chúng tôi chuyên bảo hiểm xe</h2>
           <p class="section__lead">
-            Giải pháp toàn diện cho mọi giai đoạn cuộc sống, hỗ trợ tận tâm 24/7.
+            Chỉ tập trung phương tiện: mô tô, xe máy và ô tô — không phí thời gian, không rườm rà.
           </p>
-          <div class="services__grid">
+          <div class="services__grid services__grid--two">
             <article class="card">
-              <div class="card__icon" aria-hidden="true">🚗</div>
-              <h3 class="card__title">Bảo hiểm xe</h3>
-              <p class="card__text">Bảo vệ toàn diện cho phương tiện của bạn.</p>
-              <a href="#consultation" class="card__link">
-                Tìm hiểu thêm <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-              </a>
+              <div class="card__icon card__icon--fa" aria-hidden="true">
+                <i class="fa-solid fa-motorcycle"></i>
+              </div>
+              <h3 class="card__title">Bảo hiểm mô tô</h3>
+              <p class="card__text">
+                TNDS bắt buộc, vật chất xe, tai nạn người ngồi trên xe — gói linh hoạt theo nhu cầu.
+              </p>
             </article>
             <article class="card">
-              <div class="card__icon" aria-hidden="true">🏥</div>
-              <h3 class="card__title">Bảo hiểm sức khỏe</h3>
-              <p class="card__text">Chăm sóc y tế không lo gánh nặng tài chính.</p>
-              <a href="#consultation" class="card__link">
-                Tìm hiểu thêm <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-              </a>
-            </article>
-            <article class="card">
-              <div class="card__icon" aria-hidden="true">🏠</div>
-              <h3 class="card__title">Bảo hiểm nhà</h3>
-              <p class="card__text">Bảo vệ ngôi nhà và tài sản trong nhà.</p>
-              <a href="#consultation" class="card__link">
-                Tìm hiểu thêm <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-              </a>
+              <div class="card__icon card__icon--fa" aria-hidden="true">
+                <i class="fa-solid fa-car"></i>
+              </div>
+              <h3 class="card__title">Bảo hiểm ô tô</h3>
+              <p class="card__text">
+                Bảo vệ toàn diện cho xe ô tô: va chạm, trộm cắp, thiên tai và hỗ trợ cứu hộ.
+              </p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section about" id="about" aria-labelledby="about-heading">
-        <div class="container about__inner">
-          <div class="about__content">
-            <h2 class="section__title section__title--left" id="about-heading">
-              Về ShieldCare
-            </h2>
-            <p>
-              Hơn 10 năm đồng hành cùng gia đình và doanh nghiệp, ShieldCare mang đến tư vấn
-              rõ ràng và hợp đồng minh bạch. So sánh gói, hiểu quyền lợi và bồi thường dễ dàng
-              hơn bao giờ hết.
-            </p>
-            <p>
-              Dù bạn cần bảo hiểm xe, sức khỏe hay tài sản, đội ngũ tư vấn viên được cấp phép
-              luôn sẵn sàng hỗ trợ — không ép buộc, không thuật ngữ khó hiểu.
-            </p>
-          </div>
-          <div class="about__highlights">
-            <div class="about__stat">
-              <span class="about__stat-value">10k+</span>
-              <span class="about__stat-label">Hợp đồng đã phục vụ</span>
-            </div>
-            <div class="about__stat">
-              <span class="about__stat-value">24/7</span>
-              <span class="about__stat-label">Hỗ trợ bồi thường</span>
-            </div>
-            <div class="about__stat">
-              <span class="about__stat-value">98%</span>
-              <span class="about__stat-label">Khách hàng hài lòng</span>
-            </div>
-          </div>
+      <section class="section about-short" id="about" aria-labelledby="about-heading">
+        <div class="container about-short__inner">
+          <h2 class="section__title section__title--left" id="about-heading">Vì sao chọn ShieldCare?</h2>
+          <ul class="about-short__list">
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Chuyên sâu bảo hiểm xe — mô tô &amp; ô tô</li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Tư vấn viên am hiểu biển số, loại xe</li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Phản hồi yêu cầu trong ngày làm việc</li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Hợp đồng minh bạch, dễ hiểu</li>
+          </ul>
         </div>
       </section>
 
-      <section
-        class="section consultation"
-        id="consultation"
-        aria-labelledby="consultation-heading"
-      >
+      <section class="section request-section" id="request" aria-labelledby="request-heading">
         <div class="container">
-          <div class="consultation__layout" id="contact">
-            <div class="consultation__intro">
-              <h2 class="section__title section__title--left" id="consultation-heading">
-                Đăng ký tư vấn miễn phí
+          <div class="request-card">
+            <div class="request-card__intro">
+              <h2 class="section__title section__title--left" id="request-heading">
+                Gửi yêu cầu bảo hiểm xe
               </h2>
               <p>
-                Điền thông tin và loại bảo hiểm bạn quan tâm. Chuyên viên sẽ liên hệ trong
-                vòng một ngày làm việc.
+                Điền thông tin bên cạnh — nhân viên sẽ gọi tư vấn báo giá phù hợp với xe của bạn.
               </p>
-              <ul class="consultation__bullets">
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Báo giá không ràng buộc</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Tư vấn viên có chứng chỉ</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Phản hồi nhanh</li>
-              </ul>
+              <div class="request-card__icons" aria-hidden="true">
+                <i class="fa-solid fa-motorcycle"></i>
+                <i class="fa-solid fa-car"></i>
+              </div>
             </div>
-            <div class="form-card">
-              <form class="consultation-form" id="consultation-form" novalidate>
-                <div class="form-group">
-                  <label for="full-name">Họ và tên</label>
-                  <input
-                    type="text"
-                    id="full-name"
-                    name="fullName"
-                    autocomplete="name"
-                    placeholder="Nguyễn Văn A"
-                  />
-                  <span class="form-error" id="error-full-name" role="alert"></span>
-                </div>
-                <div class="form-group">
-                  <label for="phone">Số điện thoại</label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    autocomplete="tel"
-                    placeholder="0901234567"
-                  />
-                  <span class="form-error" id="error-phone" role="alert"></span>
-                </div>
-                <div class="form-group">
-                  <label for="email">Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    autocomplete="email"
-                    placeholder="email@example.com"
-                  />
-                  <span class="form-error" id="error-email" role="alert"></span>
-                </div>
-                <div class="form-group">
-                  <label for="insurance-type">Loại bảo hiểm</label>
-                  <select id="insurance-type" name="insuranceType">
-                    <option value="">Chọn loại bảo hiểm</option>
-                    <option value="car">Xe (Car)</option>
-                    <option value="health">Sức khỏe (Health)</option>
-                    <option value="home">Nhà (Home)</option>
-                  </select>
-                  <span class="form-error" id="error-insurance-type" role="alert"></span>
-                </div>
-                <p class="form-error form-error--global" id="form-api-error" role="alert" hidden></p>
-                <button type="submit" class="btn btn--primary btn--block" id="consultation-submit">
-                  Gửi yêu cầu
-                </button>
-                <p class="form-success" id="form-success" role="status" aria-live="polite" hidden>
-                  Cảm ơn bạn! Chúng tôi sẽ liên hệ sớm nhất.
-                </p>
-              </form>
-            </div>
+
+            <form class="request-form" id="request-form" novalidate>
+              <div class="form-group">
+                <label for="ten-khach-hang">Tên khách hàng</label>
+                <input
+                  type="text"
+                  id="ten-khach-hang"
+                  name="tenKhachHang"
+                  autocomplete="name"
+                  placeholder="Nguyễn Văn A"
+                />
+                <span class="form-error" id="error-ten-khach-hang" role="alert"></span>
+              </div>
+              <div class="form-group">
+                <label for="so-dien-thoai">Số điện thoại</label>
+                <input
+                  type="tel"
+                  id="so-dien-thoai"
+                  name="soDienThoai"
+                  autocomplete="tel"
+                  placeholder="0901234567"
+                />
+                <span class="form-error" id="error-so-dien-thoai" role="alert"></span>
+              </div>
+              <div class="form-group">
+                <label for="bien-so">Biển số xe</label>
+                <input
+                  type="text"
+                  id="bien-so"
+                  name="bienSo"
+                  placeholder="68L-555.77, 68MA-55577..."
+                />
+                <span class="form-hint">Nhập biển số tùy ý (ví dụ: 68L-55577, 68MA-555.77)</span>
+                <span class="form-error" id="error-bien-so" role="alert"></span>
+              </div>
+              <p class="form-error form-error--global" id="form-api-error" role="alert" hidden></p>
+              <button type="submit" class="btn btn--primary btn--block" id="request-submit">
+                Gửi yêu cầu bảo hiểm
+              </button>
+            </form>
           </div>
         </div>
       </section>
@@ -224,19 +198,9 @@
     <footer class="site-footer">
       <div class="container site-footer__inner">
         <p class="site-footer__copy">
-          &copy; <span id="year"></span> ShieldCare — Đại lý Bảo hiểm. Bảo lưu mọi quyền.
+          &copy; <span id="year"></span> ShieldCare — Bảo hiểm xe mô tô &amp; ô tô.
         </p>
-        <div class="site-footer__social" aria-label="Mạng xã hội">
-          <a href="#" class="site-footer__social-link" aria-label="Facebook">
-            <i class="fa-brands fa-facebook-f" aria-hidden="true"></i>
-          </a>
-          <a href="#" class="site-footer__social-link" aria-label="LinkedIn">
-            <i class="fa-brands fa-linkedin-in" aria-hidden="true"></i>
-          </a>
-          <a href="#" class="site-footer__social-link" aria-label="X">
-            <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
-          </a>
-        </div>
+        <a href="admin.html" class="site-footer__admin-link">Quản trị</a>
       </div>
     </footer>
 
