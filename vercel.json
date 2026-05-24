@@ -5,6 +5,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://onrender.com*"
+    },
+    {
+      "source": "/login",
+      "destination": "https://onrender.com"
     }
   ]
 }
